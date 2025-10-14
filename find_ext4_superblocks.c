@@ -207,13 +207,15 @@ int main(int argc, char *argv[]) {
         total_found += found_in_chunk;
         
         total_bytes_read += bytes_read;
-        
+
+/*
         // Print progress for large files
-        if (total_bytes_read % (CHUNK_SIZE * 10) == 0 || bytes_read < CHUNK_SIZE) {
+        if (total_bytes_read % (CHUNK_SIZE * 100) == 0 || bytes_read < CHUNK_SIZE) {
             double progress = (double)total_bytes_read / file_size * 100.0;
-            printf("Progress: %.1f%% (%ld / %ld bytes)\n", 
+            printf("Progress: %.1f%% (%ld of %ld bytes)\n", 
                    progress, total_bytes_read, file_size);
         }
+*/
     }
     
     if (ferror(file)) {
