@@ -208,6 +208,5 @@ doc/_build/
 *.rar
 *.7z
 
-# Project specific executables (add your project name)
-# my_project_name
+# Project specific executables
 find_ext4_superblocks
