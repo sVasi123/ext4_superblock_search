@@ -1,2 +1,1 @@
-Reads input file in 4MB chunks and searches for ext4 superblocks.
-Prints essential information about found superblocks.
+Reads input file in 4MB chunks and searches for ext4 primary superblocks based on ext4 magic number and prints essential information about found superblocks.
