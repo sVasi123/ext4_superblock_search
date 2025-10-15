@@ -1,6 +1,6 @@
 /*
  * find_ext4_superblocks.c - Find ext4 superblocks in disk images
- * 
+ *
  * Reads file in 4MB chunks and searches for ext4 superblocks.
  * Prints essential information about found superblocks.
  *
@@ -16,106 +16,134 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <time.h>
 
 #include <ext2fs/ext2_fs.h> // For ext4 superblock structure
 
-#define CHUNK_SIZE (4 * 1024 * 1024)  // 4MB chunks
+#define CHUNK_SIZE (4 * 1024 * 1024) // 4MB chunks
 #define EXT4_MAGIC 0xEF53
 #define SUPERBLOCK_SIZE 1024
 #define SUPERBLOCK_MAGIC_OFFSET 56
 
-void format_size(uint64_t bytes, char *buffer, size_t buffer_size) {
+void format_size(uint64_t bytes, char *buffer, size_t buffer_size)
+{
     const char *units[] = {"B", "KB", "MB", "GB", "TB", "PB"};
     int unit = 0;
     double size = (double)bytes;
-    
-    while (size >= 1024.0 && unit < 5) {
+
+    while (size >= 1024.0 && unit < 5)
+    {
         size /= 1024.0;
         unit++;
     }
-    
-    if (unit == 0) {
+
+    if (unit == 0)
+    {
         snprintf(buffer, buffer_size, "%.0f %s", size, units[unit]);
-    } else {
+    }
+    else
+    {
         snprintf(buffer, buffer_size, "%.1f %s", size, units[unit]);
     }
 }
 
-void print_superblock_info(const struct ext2_super_block *sb, off_t file_offset) {
+void print_superblock_info(const struct ext2_super_block *sb, off_t file_offset)
+{
     char fs_size_str[64];
     char free_space_str[64];
     uint32_t block_size;
     uint64_t fs_size_bytes;
     uint64_t free_bytes;
-    
+
     // Calculate block size
     block_size = 1024 << sb->s_log_block_size;
-    
+
     // Calculate filesystem size
     fs_size_bytes = (uint64_t)sb->s_blocks_count * block_size;
-    
+
     // Calculate free space
     free_bytes = (uint64_t)sb->s_free_blocks_count * block_size;
-    
+
     format_size(fs_size_bytes, fs_size_str, sizeof(fs_size_str));
     format_size(free_bytes, free_space_str, sizeof(free_space_str));
-    
+
     printf("================== EXT4 SUPERBLOCK FOUND ==================\n");
     printf("File offset:          %ld bytes (0x%lx)\n", file_offset, file_offset);
-    //printf("Magic number:         0x%04x\n", sb->s_magic);
-    //printf("Revision level:       %u\n", sb->s_rev_level);
-    printf("Filesystem state:     %u %s\n", sb->s_state, 
-           (sb->s_state == 1) ? "(clean)" : 
-           (sb->s_state == 2) ? "(errors)" : "(unknown)");
+    // printf("Magic number:         0x%04x\n", sb->s_magic);
+    // printf("Revision level:       %u\n", sb->s_rev_level);
+    printf("Volume name:          %.16s\n", sb->s_volume_name);
+    printf("Last mounted on:      %.64s\n", sb->s_last_mounted);
+    printf("Mount count:          %u\n", sb->s_mnt_count);
+    printf("Filesystem state:     %u %s\n", sb->s_state,
+           (sb->s_state == 1) ? "(clean)" : (sb->s_state == 2) ? "(errors)"
+                                                               : "(unknown)");
     printf("Block size:           %u bytes\n", block_size);
     printf("Total blocks:         %u\n", sb->s_blocks_count);
-    //printf("Free blocks:          %u\n", sb->s_free_blocks_count);
-    //printf("Reserved blocks:      %u\n", sb->s_r_blocks_count);
+    // printf("Free blocks:          %u\n", sb->s_free_blocks_count);
+    // printf("Reserved blocks:      %u\n", sb->s_r_blocks_count);
     printf("Filesystem size:      %s (%lu bytes)\n", fs_size_str, fs_size_bytes);
     printf("Free space:           %s (%lu bytes)\n", free_space_str, free_bytes);
-    //printf("Total inodes:         %u\n", sb->s_inodes_count);
-    //printf("Free inodes:          %u\n", sb->s_free_inodes_count);
-    //printf("Inodes per group:     %u\n", sb->s_inodes_per_group);
-    //printf("Blocks per group:     %u\n", sb->s_blocks_per_group);
-    printf("First data block:     %u\n", sb->s_first_data_block);
-    
+    // printf("Total inodes:         %u\n", sb->s_inodes_count);
+    // printf("Free inodes:          %u\n", sb->s_free_inodes_count);
+    // printf("Inodes per group:     %u\n", sb->s_inodes_per_group);
+    // printf("Blocks per group:     %u\n", sb->s_blocks_per_group);
+    // printf("First data block:     %u\n", sb->s_first_data_block);
+
     // Check if this looks like a primary superblock
-    if (file_offset == 1024) {
+    if (file_offset == 1024)
+    {
         printf("*** PRIMARY SUPERBLOCK (canonical location) ***\n");
     }
-    
+
     printf("===========================================================\n\n");
+    fflush(stdout);
 }
 
-int search_superblocks_in_chunk(const unsigned char *buffer, size_t buffer_size, 
-                                off_t chunk_offset) {
+int search_superblocks_in_chunk(const unsigned char *buffer, size_t buffer_size,
+                                off_t chunk_offset)
+{
     size_t i;
     int found_count = 0;
-    
+
     // Search for magic number in the chunk
-    for (i = 0; i <= buffer_size - SUPERBLOCK_SIZE; i++) {
+    for (i = 0; i <= buffer_size - SUPERBLOCK_SIZE; i++)
+    {
         // Check if there's a magic number at offset 56 from current position
-        if (i + SUPERBLOCK_MAGIC_OFFSET + 1 < buffer_size) {
-            uint16_t magic = *(uint16_t*)(buffer + i + SUPERBLOCK_MAGIC_OFFSET);
-            
-            if (magic == EXT4_MAGIC) {
+        if (i + SUPERBLOCK_MAGIC_OFFSET + 1 < buffer_size)
+        {
+            uint16_t magic = *(uint16_t *)(buffer + i + SUPERBLOCK_MAGIC_OFFSET);
+
+            if (magic == EXT4_MAGIC)
+            {
                 // Found potential superblock, extract information
-                if (i + SUPERBLOCK_SIZE <= buffer_size) {
+                if (i + SUPERBLOCK_SIZE <= buffer_size)
+                {
                     const struct ext2_super_block *sb = (const struct ext2_super_block *)(buffer + i);
                     off_t file_offset = chunk_offset + i;
-                    
+
+                    uint32_t block_size;
+                    uint64_t fs_size_bytes;
+
+                    // Calculate block size
+                    block_size = 1024 << sb->s_log_block_size;
+
+                    // Calculate filesystem size
+                    fs_size_bytes = (uint64_t)sb->s_blocks_count * block_size;
+
                     // Basic validation - check if values make sense
-                    if (sb->s_blocks_count > 0 && 
-                        sb->s_inodes_count > 0 && 
-                        sb->s_block_group_nr == 0 &&    // Primary superblock check
-                        sb->s_log_block_size < 10 &&    // Reasonable block size limit
+                    if (sb->s_blocks_count > 0 &&
+                        sb->s_inodes_count > 0 &&
+                        sb->s_block_group_nr == 0 && // Primary superblock check
+                        sb->s_log_block_size < 10 && // Reasonable block size limit
                         sb->s_inodes_per_group > 0 &&
-                        sb->s_rev_level == 1
-                        ) {
-                        
+                        fs_size_bytes / 1024 / 1024 / 1024 / 1024 > 6 &&  // filesystem > 6TB
+                        fs_size_bytes / 1024 / 1024 / 1024 / 1024 < 25 && // filesystem < 25TB
+                        sb->s_rev_level == 1)
+                    {
+
                         print_superblock_info(sb, file_offset);
                         found_count++;
-                        
+
                         // Skip ahead to avoid finding overlapping matches
                         i += SUPERBLOCK_SIZE - 1;
                     }
@@ -123,11 +151,12 @@ int search_superblocks_in_chunk(const unsigned char *buffer, size_t buffer_size,
             }
         }
     }
-    
+
     return found_count;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     FILE *file;
     unsigned char *buffer;
     size_t bytes_read;
@@ -135,36 +164,49 @@ int main(int argc, char *argv[]) {
     off_t file_size;
     int total_found = 0;
     struct stat st;
-    
-    if (argc != 2) {
+
+    time_t current_time;
+    struct tm *time_info;
+    char timestamp[100];
+
+    if (argc != 2)
+    {
         fprintf(stderr, "Usage: %s <disk_image_file>\n", argv[0]);
         fprintf(stderr, "Example: %s /dev/sda1\n", argv[0]);
         fprintf(stderr, "Example: %s disk.img\n", argv[0]);
         return 1;
     }
-    
+
     // Get file size
-    if (stat(argv[1], &st) == -1) {
+    if (stat(argv[1], &st) == -1)
+    {
         perror("stat");
         return 1;
     }
     file_size = st.st_size;
-    
+
     // Open file
     file = fopen(argv[1], "rb");
-    if (!file) {
+    if (!file)
+    {
         perror("fopen");
         return 1;
     }
-    
+
     // Allocate buffer for chunks
     buffer = malloc(CHUNK_SIZE);
-    if (!buffer) {
+    if (!buffer)
+    {
         fprintf(stderr, "Error: Cannot allocate %d bytes for buffer\n", CHUNK_SIZE);
         fclose(file);
         return 1;
     }
-    
+
+    time(&current_time);
+    time_info = localtime(&current_time);
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", time_info);
+
+    printf("Starting: %s\n", timestamp);
     printf("Scanning file: %s\n", argv[1]);
     printf("File size: ");
     char size_str[64];
@@ -172,35 +214,41 @@ int main(int argc, char *argv[]) {
     printf("%s (%ld bytes)\n", size_str, file_size);
     printf("Chunk size: %d MB\n", CHUNK_SIZE / (1024 * 1024));
     printf("Searching for ext4 superblocks...\n\n");
-    
+    fflush(stdout);
+
     // Read and process chunks
-    while ((bytes_read = fread(buffer, 1, CHUNK_SIZE, file)) > 0) {
+    while ((bytes_read = fread(buffer, 1, CHUNK_SIZE, file)) > 0)
+    {
         // Search for superblocks in this chunk
         int found_in_chunk = search_superblocks_in_chunk(buffer, bytes_read, total_bytes_read);
         total_found += found_in_chunk;
         total_bytes_read += bytes_read;
 
-/*
-        // Print progress for large files
-        if (total_bytes_read % (CHUNK_SIZE * 100) == 0 || bytes_read < CHUNK_SIZE) {
+        // Print progress for large files every ~400GB or on last chunk
+        if (total_bytes_read % ((long int)CHUNK_SIZE * 100000) == 0 || bytes_read < CHUNK_SIZE)
+        {
+            time(&current_time);
+            time_info = localtime(&current_time);
+            strftime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S", time_info);
             double progress = (double)total_bytes_read / file_size * 100.0;
-            printf("Progress: %.1f%% (%ld of %ld bytes)\n", 
-                   progress, total_bytes_read, file_size);
+            printf("[%s] Progress: %.1f%% (%ld of %ld GB)\n",
+                   timestamp, progress, total_bytes_read / 1024 / 1024 / 1024, file_size / 1024 / 1024 / 1024);
+            fflush(stdout);
         }
-*/
     }
-    
-    if (ferror(file)) {
+
+    if (ferror(file))
+    {
         perror("fread");
         free(buffer);
         fclose(file);
         return 1;
     }
-    
+
     printf("\nScan completed successfully.\n");
-    printf("Total bytes read: %ld\n", total_found);    
+    printf("Total bytes read: %ld\n", total_bytes_read);
     printf("Total ext4 superblocks found: %d\n", total_found);
-    
+
     free(buffer);
     fclose(file);
     return 0;
