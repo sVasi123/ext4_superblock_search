@@ -17,6 +17,8 @@
 #include <fcntl.h>
 #include <errno.h>
 
+#include <ext2fs/ext2_fs.h> // For ext4 superblock structure
+
 #define CHUNK_SIZE (4 * 1024 * 1024)  // 4MB chunks
 #define EXT4_MAGIC 0xEF53
 #define SUPERBLOCK_SIZE 1024
