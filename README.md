@@ -1,1 +1,1 @@
-Reads input file in 4MB chunks and searches for ext4 primary superblocks based on ext4 magic number and prints essential information about found superblocks.
+This tool was developed for data recovery from a crashed QNAP NAS. It reads an input file in 4MB chunks and searches for every PRIMARY ext4 superblock using the ext4 magic number and displays key information about any detected one. The utility is helpful for scanning IMG files dumped from LVM physical volume to locate offests of ext4 partitions (superblock minus 1024 bytes) within LVM logical volumes. 
