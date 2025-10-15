@@ -62,28 +62,26 @@ void print_superblock_info(const struct ext2_super_block *sb, off_t file_offset)
     
     printf("================== EXT4 SUPERBLOCK FOUND ==================\n");
     printf("File offset:          %ld bytes (0x%lx)\n", file_offset, file_offset);
-    printf("Magic number:         0x%04x\n", sb->s_magic);
-    printf("Revision level:       %u\n", sb->s_rev_level);
+    //printf("Magic number:         0x%04x\n", sb->s_magic);
+    //printf("Revision level:       %u\n", sb->s_rev_level);
     printf("Filesystem state:     %u %s\n", sb->s_state, 
            (sb->s_state == 1) ? "(clean)" : 
            (sb->s_state == 2) ? "(errors)" : "(unknown)");
     printf("Block size:           %u bytes\n", block_size);
     printf("Total blocks:         %u\n", sb->s_blocks_count);
-    printf("Free blocks:          %u\n", sb->s_free_blocks_count);
-    printf("Reserved blocks:      %u\n", sb->s_r_blocks_count);
+    //printf("Free blocks:          %u\n", sb->s_free_blocks_count);
+    //printf("Reserved blocks:      %u\n", sb->s_r_blocks_count);
     printf("Filesystem size:      %s (%lu bytes)\n", fs_size_str, fs_size_bytes);
     printf("Free space:           %s (%lu bytes)\n", free_space_str, free_bytes);
-    printf("Total inodes:         %u\n", sb->s_inodes_count);
-    printf("Free inodes:          %u\n", sb->s_free_inodes_count);
-    printf("Inodes per group:     %u\n", sb->s_inodes_per_group);
-    printf("Blocks per group:     %u\n", sb->s_blocks_per_group);
+    //printf("Total inodes:         %u\n", sb->s_inodes_count);
+    //printf("Free inodes:          %u\n", sb->s_free_inodes_count);
+    //printf("Inodes per group:     %u\n", sb->s_inodes_per_group);
+    //printf("Blocks per group:     %u\n", sb->s_blocks_per_group);
     printf("First data block:     %u\n", sb->s_first_data_block);
     
     // Check if this looks like a primary superblock
     if (file_offset == 1024) {
         printf("*** PRIMARY SUPERBLOCK (canonical location) ***\n");
-    } else if (file_offset >= 1024 && (file_offset - 1024) % block_size == 0) {
-        printf("*** Possible backup superblock ***\n");
     }
     
     printf("===========================================================\n\n");
@@ -109,8 +107,11 @@ int search_superblocks_in_chunk(const unsigned char *buffer, size_t buffer_size,
                     // Basic validation - check if values make sense
                     if (sb->s_blocks_count > 0 && 
                         sb->s_inodes_count > 0 && 
-                        sb->s_log_block_size < 10 &&  // Reasonable block size limit
-                        sb->s_inodes_per_group > 0) {
+                        sb->s_block_group_nr == 0 &&    // Primary superblock check
+                        sb->s_log_block_size < 10 &&    // Reasonable block size limit
+                        sb->s_inodes_per_group > 0 &&
+                        sb->s_rev_level == 1
+                        ) {
                         
                         print_superblock_info(sb, file_offset);
                         found_count++;
@@ -177,7 +178,6 @@ int main(int argc, char *argv[]) {
         // Search for superblocks in this chunk
         int found_in_chunk = search_superblocks_in_chunk(buffer, bytes_read, total_bytes_read);
         total_found += found_in_chunk;
-        
         total_bytes_read += bytes_read;
 
 /*
@@ -198,6 +198,7 @@ int main(int argc, char *argv[]) {
     }
     
     printf("\nScan completed successfully.\n");
+    printf("Total bytes read: %ld\n", total_found);    
     printf("Total ext4 superblocks found: %d\n", total_found);
     
     free(buffer);
