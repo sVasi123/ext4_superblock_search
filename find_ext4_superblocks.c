@@ -24,36 +24,6 @@
 #define SUPERBLOCK_SIZE 1024
 #define SUPERBLOCK_MAGIC_OFFSET 56
 
-// ext4 superblock structure (simplified - only fields we need)
-struct ext4_superblock {
-    uint32_t s_inodes_count;           // 0x00: Total inodes count
-    uint32_t s_blocks_count_lo;        // 0x04: Total blocks count (low 32 bits)
-    uint32_t s_r_blocks_count_lo;      // 0x08: Reserved blocks count (low 32 bits)
-    uint32_t s_free_blocks_count_lo;   // 0x0C: Free blocks count (low 32 bits)
-    uint32_t s_free_inodes_count;      // 0x10: Free inodes count
-    uint32_t s_first_data_block;       // 0x14: First data block
-    uint32_t s_log_block_size;         // 0x18: Block size (1024 << s_log_block_size)
-    uint32_t s_log_cluster_size;       // 0x1C: Cluster size
-    uint32_t s_blocks_per_group;       // 0x20: Blocks per group
-    uint32_t s_clusters_per_group;     // 0x24: Clusters per group
-    uint32_t s_inodes_per_group;       // 0x28: Inodes per group
-    uint32_t s_mtime;                  // 0x2C: Mount time
-    uint32_t s_wtime;                  // 0x30: Write time
-    uint16_t s_mnt_count;              // 0x34: Mount count
-    uint16_t s_max_mnt_count;          // 0x36: Maximal mount count
-    uint16_t s_magic;                  // 0x38: Magic signature
-    uint16_t s_state;                  // 0x3A: File system state
-    uint16_t s_errors;                 // 0x3C: Behavior when detecting errors
-    uint16_t s_minor_rev_level;        // 0x3E: Minor revision level
-    uint32_t s_lastcheck;              // 0x40: Time of last check
-    uint32_t s_checkinterval;          // 0x44: Maximum time between checks
-    uint32_t s_creator_os;             // 0x48: Creator OS
-    uint32_t s_rev_level;              // 0x4C: Revision level
-    uint16_t s_def_resuid;             // 0x50: Default uid for reserved blocks
-    uint16_t s_def_resgid;             // 0x52: Default gid for reserved blocks
-    // ... more fields follow but we don't need them for basic info
-};
-
 void format_size(uint64_t bytes, char *buffer, size_t buffer_size) {
     const char *units[] = {"B", "KB", "MB", "GB", "TB", "PB"};
     int unit = 0;
@@ -71,7 +41,7 @@ void format_size(uint64_t bytes, char *buffer, size_t buffer_size) {
     }
 }
 
-void print_superblock_info(const struct ext4_superblock *sb, off_t file_offset) {
+void print_superblock_info(const struct ext2_super_block *sb, off_t file_offset) {
     char fs_size_str[64];
     char free_space_str[64];
     uint32_t block_size;
@@ -82,10 +52,10 @@ void print_superblock_info(const struct ext4_superblock *sb, off_t file_offset) 
     block_size = 1024 << sb->s_log_block_size;
     
     // Calculate filesystem size
-    fs_size_bytes = (uint64_t)sb->s_blocks_count_lo * block_size;
+    fs_size_bytes = (uint64_t)sb->s_blocks_count * block_size;
     
     // Calculate free space
-    free_bytes = (uint64_t)sb->s_free_blocks_count_lo * block_size;
+    free_bytes = (uint64_t)sb->s_free_blocks_count * block_size;
     
     format_size(fs_size_bytes, fs_size_str, sizeof(fs_size_str));
     format_size(free_bytes, free_space_str, sizeof(free_space_str));
@@ -98,9 +68,9 @@ void print_superblock_info(const struct ext4_superblock *sb, off_t file_offset) 
            (sb->s_state == 1) ? "(clean)" : 
            (sb->s_state == 2) ? "(errors)" : "(unknown)");
     printf("Block size:           %u bytes\n", block_size);
-    printf("Total blocks:         %u\n", sb->s_blocks_count_lo);
-    printf("Free blocks:          %u\n", sb->s_free_blocks_count_lo);
-    printf("Reserved blocks:      %u\n", sb->s_r_blocks_count_lo);
+    printf("Total blocks:         %u\n", sb->s_blocks_count);
+    printf("Free blocks:          %u\n", sb->s_free_blocks_count);
+    printf("Reserved blocks:      %u\n", sb->s_r_blocks_count);
     printf("Filesystem size:      %s (%lu bytes)\n", fs_size_str, fs_size_bytes);
     printf("Free space:           %s (%lu bytes)\n", free_space_str, free_bytes);
     printf("Total inodes:         %u\n", sb->s_inodes_count);
@@ -133,11 +103,11 @@ int search_superblocks_in_chunk(const unsigned char *buffer, size_t buffer_size,
             if (magic == EXT4_MAGIC) {
                 // Found potential superblock, extract information
                 if (i + SUPERBLOCK_SIZE <= buffer_size) {
-                    const struct ext4_superblock *sb = (const struct ext4_superblock *)(buffer + i);
+                    const struct ext2_super_block *sb = (const struct ext2_super_block *)(buffer + i);
                     off_t file_offset = chunk_offset + i;
                     
                     // Basic validation - check if values make sense
-                    if (sb->s_blocks_count_lo > 0 && 
+                    if (sb->s_blocks_count > 0 && 
                         sb->s_inodes_count > 0 && 
                         sb->s_log_block_size < 10 &&  // Reasonable block size limit
                         sb->s_inodes_per_group > 0) {
