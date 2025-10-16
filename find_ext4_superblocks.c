@@ -67,13 +67,20 @@ void print_superblock_info(const struct ext2_super_block *sb, off_t file_offset)
     format_size(fs_size_bytes, fs_size_str, sizeof(fs_size_str));
     format_size(free_bytes, free_space_str, sizeof(free_space_str));
 
+    time_t tmp_time_t;
+
     printf("================== EXT4 SUPERBLOCK FOUND ==================\n");
     printf("File offset:          %ld bytes (0x%lx)\n", file_offset, file_offset);
     // printf("Magic number:         0x%04x\n", sb->s_magic);
-    // printf("Revision level:       %u\n", sb->s_rev_level);
+    printf("Revision level:       %u\n", sb->s_rev_level);
+    printf("Block group number:   %u\n", sb->s_block_group_nr);
     printf("Volume name:          %.16s\n", sb->s_volume_name);
     printf("Last mounted on:      %.64s\n", sb->s_last_mounted);
     printf("Mount count:          %u\n", sb->s_mnt_count);
+    tmp_time_t = (time_t)sb->s_mkfs_time;
+    printf("Creation time:        %s", ctime(&tmp_time_t));
+    tmp_time_t = (time_t)sb->s_wtime;
+    printf("Write time:           %s", ctime(&tmp_time_t));
     printf("Filesystem state:     %u %s\n", sb->s_state,
            (sb->s_state == 1) ? "(clean)" : (sb->s_state == 2) ? "(errors)"
                                                                : "(unknown)");
@@ -121,6 +128,16 @@ int search_superblocks_in_chunk(const unsigned char *buffer, size_t buffer_size,
                     const struct ext2_super_block *sb = (const struct ext2_super_block *)(buffer + i);
                     off_t file_offset = chunk_offset + i;
 
+                    struct tm t;
+                    t.tm_year = 2000 - 1900; // Year - 1900
+                    t.tm_mon = 0;           // Month, where 0 = jan
+                    t.tm_mday = 1;          // Day of the month
+                    t.tm_hour = 0;
+                    t.tm_min = 0;
+                    t.tm_sec = 1;
+                    t.tm_isdst = -1; // Is DST on? 1 = yes, 0 = no, -1 = unknown
+                    time_t year_2000 = mktime(&t);
+
                     uint32_t block_size;
                     uint64_t fs_size_bytes;
 
@@ -131,14 +148,16 @@ int search_superblocks_in_chunk(const unsigned char *buffer, size_t buffer_size,
                     fs_size_bytes = (uint64_t)sb->s_blocks_count * block_size;
 
                     // Basic validation - check if values make sense
-                    if (sb->s_blocks_count > 0 &&
+                    if (sb->s_block_group_nr == 0 && // Primary superblock check
+                        sb->s_blocks_count > 0 && sb->s_blocks_count >= sb->s_free_blocks_count &&
                         sb->s_inodes_count > 0 &&
-                        sb->s_block_group_nr == 0 && // Primary superblock check
-                        sb->s_log_block_size < 10 && // Reasonable block size limit
+                        sb->s_mnt_count > 0 &&
                         sb->s_inodes_per_group > 0 &&
-                        fs_size_bytes / 1024 / 1024 / 1024 / 1024 > 6 &&  // filesystem > 6TB
-                        fs_size_bytes / 1024 / 1024 / 1024 / 1024 < 25 && // filesystem < 25TB
-                        sb->s_rev_level == 1)
+                        sb->s_mkfs_time >= year_2000 && sb->s_mkfs_time <= time(NULL) &&
+                        sb->s_wtime >= sb->s_mkfs_time && sb->s_wtime <= time(NULL) &&
+                        //fs_size_bytes / 1024 / 1024 / 1024 / 1024 > 1 &&  // filesystem size > 1TB
+                        fs_size_bytes / 1024 / 1024 / 1024 / 1024 < 100 && // filesystem size < 100TB
+                        (sb->s_rev_level == EXT2_GOOD_OLD_REV || sb->s_rev_level == EXT2_DYNAMIC_REV))
                     {
 
                         print_superblock_info(sb, file_offset);
