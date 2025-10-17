@@ -90,11 +90,11 @@ void print_superblock_info(const struct ext2_super_block *sb, off_t file_offset)
     // printf("Reserved blocks:      %u\n", sb->s_r_blocks_count);
     printf("Filesystem size:      %s (%lu bytes)\n", fs_size_str, fs_size_bytes);
     printf("Free space:           %s (%lu bytes)\n", free_space_str, free_bytes);
-    // printf("Total inodes:         %u\n", sb->s_inodes_count);
+    printf("Total inodes:         %u\n", sb->s_inodes_count);
     // printf("Free inodes:          %u\n", sb->s_free_inodes_count);
-    // printf("Inodes per group:     %u\n", sb->s_inodes_per_group);
-    // printf("Blocks per group:     %u\n", sb->s_blocks_per_group);
-    // printf("First data block:     %u\n", sb->s_first_data_block);
+    printf("Inodes per group:     %u\n", sb->s_inodes_per_group);
+    printf("Blocks per group:     %u\n", sb->s_blocks_per_group);
+    printf("First data block:     %u\n", sb->s_first_data_block);
 
     // Check if this looks like a primary superblock
     if (file_offset == 1024)
@@ -128,6 +128,7 @@ int search_superblocks_in_chunk(const unsigned char *buffer, size_t buffer_size,
                     const struct ext2_super_block *sb = (const struct ext2_super_block *)(buffer + i);
                     off_t file_offset = chunk_offset + i;
 
+                    /*
                     struct tm t;
                     t.tm_year = 2000 - 1900; // Year - 1900
                     t.tm_mon = 0;           // Month, where 0 = jan
@@ -146,18 +147,22 @@ int search_superblocks_in_chunk(const unsigned char *buffer, size_t buffer_size,
 
                     // Calculate filesystem size
                     fs_size_bytes = (uint64_t)sb->s_blocks_count * block_size;
-
-                    // Basic validation - check if values make sense
-                    if (sb->s_block_group_nr == 0 && // Primary superblock check
-                        sb->s_blocks_count > 0 && sb->s_blocks_count >= sb->s_free_blocks_count &&
-                        sb->s_inodes_count > 0 &&
-                        sb->s_mnt_count > 0 &&
-                        sb->s_inodes_per_group > 0 &&
-                        sb->s_mkfs_time >= year_2000 && sb->s_mkfs_time <= time(NULL) &&
-                        sb->s_wtime >= sb->s_mkfs_time && sb->s_wtime <= time(NULL) &&
-                        //fs_size_bytes / 1024 / 1024 / 1024 / 1024 > 1 &&  // filesystem size > 1TB
-                        fs_size_bytes / 1024 / 1024 / 1024 / 1024 < 100 && // filesystem size < 100TB
-                        (sb->s_rev_level == EXT2_GOOD_OLD_REV || sb->s_rev_level == EXT2_DYNAMIC_REV))
+*/
+                    // check for QNAP signature
+                    if (sb->s_checksum == 0x50414E51 // 'QNAP' signature
+                                                     /*
+                                                     sb->s_block_group_nr == 0 && // Primary superblock check
+                                                     sb->s_blocks_count > 0 && sb->s_blocks_count >= sb->s_free_blocks_count &&
+                                                     sb->s_inodes_count > 0 &&
+                                                     sb->s_mnt_count > 0 &&
+                                                     sb->s_inodes_per_group > 0 &&
+                                                     sb->s_mkfs_time >= year_2000 && sb->s_mkfs_time <= time(NULL) &&
+                                                     sb->s_wtime >= sb->s_mkfs_time && sb->s_wtime <= time(NULL) &&
+                                                     fs_size_bytes / 1024 / 1024 / 1024 / 1024 > 1 &&  // filesystem size > 1TB
+                                                     fs_size_bytes / 1024 / 1024 / 1024 / 1024 < 100 && // filesystem size < 100TB
+                                                     (sb->s_rev_level == EXT2_GOOD_OLD_REV || sb->s_rev_level == EXT2_DYNAMIC_REV)
+                                                     */
+                    )
                     {
 
                         print_superblock_info(sb, file_offset);
